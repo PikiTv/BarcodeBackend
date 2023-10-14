@@ -16,17 +16,40 @@ app.use(log);
 
 app.get("/product", function (req, res) {
   fs.readFile(filename, "utf8", function (err, data) {
-    // Hier sollte der Code sein, um den gescannten Barcode aus dem Backend zu senden
-    const scannedBarcode = JSON.parse(data).scannedBarcode;
-    res.json({ scannedBarcode });
+    if (err) {
+      console.error("Error reading product data:", err);
+      res.status(500).json({ error: "Error reading product data" });
+      return;
+    }
+    const productData = JSON.parse(data);
+    res.json(productData);
   });
 });
 
 app.post("/product", function (req, res) {
+  const barcode = req.body.barcode;
+  if (!barcode) {
+    res.status(400).json({ error: "Invalid barcode data" });
+    return;
+  }
+
   fs.readFile(filename, "utf8", function (err, data) {
-    const dataAsObject = JSON.parse(data);
-    dataAsObject.scannedBarcode = req.body.scannedBarcode; // Annahme: Sie möchten den gescannten Barcode im JSON speichern
-    fs.writeFile(filename, JSON.stringify(dataAsObject), () => {
+    if (err) {
+      console.error("Error reading product data:", err);
+      res.status(500).json({ error: "Error reading product data" });
+      return;
+    }
+
+    const productData = JSON.parse(data);
+    productData.push(barcode);
+
+    fs.writeFile(filename, JSON.stringify(productData), (err) => {
+      if (err) {
+        console.error("Error writing product data:", err);
+        res.status(500).json({ error: "Error writing product data" });
+        return;
+      }
+
       res.json({ success: true });
     });
   });
