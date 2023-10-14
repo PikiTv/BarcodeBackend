@@ -3,6 +3,7 @@
 // https://github.com/microsoft/Web-Dev-For-Beginners/tree/main/7-bank-project/api
 // ***************************************************************************
 
+/*
 const express = require('express');
 const bodyParser = require('body-parser');
 const cors = require('cors')
@@ -217,3 +218,139 @@ app.listen(port, () => {
     console.log(`Server listening on port ${port}`);
 });
   
+*/
+
+const express = require('express');
+const bodyParser = require('body-parser');
+const cors = require('cors');
+const fs = require('fs');
+
+// App-Konstanten
+const port = process.env.PORT || 3000;
+const apiPrefix = '/api';
+const dataFilePath = 'data.json'; // Der Dateipfad, in dem Ihre Daten gespeichert sind
+
+// Erstellen Sie eine Funktion zum Lesen der Daten aus der Datei
+const readDataFromFile = () => {
+    try {
+        const data = fs.readFileSync(dataFilePath, 'utf8');
+        return JSON.parse(data);
+    } catch (err) {
+        return {}; // Geben Sie ein leeres Objekt zurück, wenn die Datei nicht existiert oder ein Fehler auftritt
+    }
+}
+
+// Erstellen Sie eine Funktion zum Schreiben der Daten in die Datei
+const writeDataToFile = (data) => {
+    fs.writeFileSync(dataFilePath, JSON.stringify(data, null, 2));
+}
+
+// Erstellen Sie die Express-App und konfigurieren Sie Middleware
+const app = express();
+app.use(bodyParser.urlencoded({ extended: true }));
+app.use(bodyParser.json());
+app.use(cors({ origin: /http:\/\/(127(\.\d){3}|localhost)/ }));
+app.options('*', cors());
+
+// Konfigurieren Sie die API-Routen
+
+// Erstellen eines Kontos
+app.post('/api/accounts', (req, res) => {
+    const accountsData = readDataFromFile();
+    // Implementieren Sie die Logik zum Erstellen eines Kontos und schreiben Sie die Daten zurück in die Datei.
+    // Zum Beispiel:
+    const { user, currency, description, balance } = req.body;
+    accountsData[user] = {
+        user,
+        currency,
+        description: description || `${user}'s budget`,
+        balance: balance || 0,
+        transactions: []
+    };
+    writeDataToFile(accountsData);
+    res.status(201).json(accountsData[user]);
+});
+
+// Abrufen von Kontodetails
+app.get('/api/accounts/:user', (req, res) => {
+    const accountsData = readDataFromFile();
+    const account = accountsData[req.params.user];
+
+    if (!account) {
+        return res.status(404).json({ error: 'User does not exist' });
+    }
+
+    return res.json(account);
+});
+
+// Löschen eines Kontos
+app.delete('/api/accounts/:user', (req, res) => {
+    const accountsData = readDataFromFile();
+    const account = accountsData[req.params.user];
+
+    if (!account) {
+        return res.status(404).json({ error: 'User does not exist' });
+    }
+
+    delete accountsData[req.params.user];
+    writeDataToFile(accountsData);
+
+    res.sendStatus(204);
+});
+
+// Fügen Sie eine Transaktion zu einem Konto hinzu
+app.post('/api/accounts/:user/transactions', (req, res) => {
+    const accountsData = readDataFromFile();
+    const account = accountsData[req.params.user];
+
+    if (!account) {
+        return res.status(404).json({ error: 'User does not exist' });
+    }
+
+    // Implementieren Sie die Logik zum Hinzufügen einer Transaktion und schreiben Sie die Daten zurück in die Datei.
+    // Zum Beispiel:
+    const { date, object, amount } = req.body;
+    const transaction = {
+        id: /* Generieren Sie eine eindeutige ID */
+        date,
+        object,
+        amount
+    };
+    account.transactions.push(transaction);
+    account.balance += transaction.amount;
+    writeDataToFile(accountsData);
+
+    res.status(201).json(transaction);
+});
+
+// Entfernen Sie eine bestimmte Transaktion aus einem Konto
+app.delete('/api/accounts/:user/transactions/:id', (req, res) => {
+    const accountsData = readDataFromFile();
+    const account = accountsData[req.params.user];
+
+    if (!account) {
+        return res.status(404).json({ error: 'User does not exist' });
+    }
+
+    const transactionIndex = account.transactions.findIndex(
+        (transaction) => transaction.id === req.params.id
+    );
+
+    if (transactionIndex === -1) {
+        return res.status(404).json({ error: 'Transaction does not exist' });
+    }
+
+    account.transactions.splice(transactionIndex, 1);
+    account.balance -= account.transactions[transactionIndex].amount;
+    writeDataToFile(accountsData);
+
+    res.sendStatus(204);
+});
+
+// Fügen Sie das API-Präfix zu allen Routen hinzu
+app.use(apiPrefix, router);
+
+// Starten Sie den Server
+app.listen(port, () => {
+    console.log(`Server hört auf Port ${port}`);
+});
